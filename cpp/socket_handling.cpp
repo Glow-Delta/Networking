@@ -80,7 +80,7 @@ void handle_connections(int server_fd, int new_socket[], struct sockaddr_in &add
                     std::cout << "404.* detected, sending back value of i: " << i << std::endl;
                     
                     // Convert integer `i` to string for sending
-                    std::string response = std::to_string(i);
+                    std::string response = "ID=" + std::to_string(i);
 
                     // Send the value of `i` back over the client socket `sd`
                     send(sd, response.c_str(), response.length(), 0);
