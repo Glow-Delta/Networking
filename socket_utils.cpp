@@ -108,6 +108,16 @@ void handle_connections(int server_fd, int new_socket[], struct sockaddr_in &add
             } else {
                 buffer[valread] = '\0';
                 std::cout << "Message from Arduino [" << i << "]: " << buffer << std::endl;
+
+                if (strstr(buffer, "404.") != nullptr) {
+                    std::cout << "404.* detected, sending back value of i: " << i << std::endl;
+                    
+                    // Convert integer `i` to string for sending
+                    std::string response = std::to_string(i);
+
+                    // Send the value of `i` back over the socket
+                    send(socket_fd, response.c_str(), response.length(), 0);
+                }
             }
         }
     }
