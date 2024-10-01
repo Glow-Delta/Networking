@@ -2,10 +2,12 @@
 CXX = g++
 CXXFLAGS = -std=c++11 -Wall
 TARGET = server
-SRC = server.cpp socket_utils.cpp
+
+# Source and Object files
+SRC = main.cpp socket_creation.cpp socket_setup.cpp socket_handling.cpp
 OBJ = $(SRC:.cpp=.o)
 
-# List any external libraries here
+# External libraries (if any)
 LIBS = -lpthread  # Example: Add any external libraries required
 
 # Default target to build the program

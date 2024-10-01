@@ -1,43 +1,9 @@
 #include "socket_utils.h"
 #include <iostream>
 #include <sys/socket.h>
-#include <netinet/in.h>
 #include <unistd.h>
 #include <cstring>
 #include <arpa/inet.h>
-
-#define BUFFER_SIZE 1024
-
-// Create a socket for the server
-int create_server_socket(int port) {
-    int server_fd;
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("Socket failed");
-        exit(EXIT_FAILURE);
-    }
-    return server_fd;
-}
-
-// Bind and listen on the server socket
-void setup_server(int server_fd, struct sockaddr_in &address, int port) {
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(port);
-
-    // Bind the socket to the port
-    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
-        perror("Bind failed");
-        exit(EXIT_FAILURE);
-    }
-
-    // Listen for incoming connections
-    if (listen(server_fd, 5) < 0) {
-        perror("Listen failed");
-        exit(EXIT_FAILURE);
-    }
-
-    std::cout << "Server listening on port " << port << std::endl;
-}
 
 // Function to handle multiple connections and receive data
 void handle_connections(int server_fd, int new_socket[], struct sockaddr_in &address, int max_connections) {
@@ -109,14 +75,15 @@ void handle_connections(int server_fd, int new_socket[], struct sockaddr_in &add
                 buffer[valread] = '\0';
                 std::cout << "Message from Arduino [" << i << "]: " << buffer << std::endl;
 
+                // Check if buffer contains "404."
                 if (strstr(buffer, "404.") != nullptr) {
                     std::cout << "404.* detected, sending back value of i: " << i << std::endl;
                     
                     // Convert integer `i` to string for sending
                     std::string response = std::to_string(i);
 
-                    // Send the value of `i` back over the socket
-                    send(socket_fd, response.c_str(), response.length(), 0);
+                    // Send the value of `i` back over the client socket `sd`
+                    send(sd, response.c_str(), response.length(), 0);
                 }
             }
         }
