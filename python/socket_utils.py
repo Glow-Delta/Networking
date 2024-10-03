@@ -37,6 +37,7 @@ def handle_connections(server_fd, connections):
 
                     if "404." in message:
                         response = "ID=" + str(connections.index(sock))
+                        logging.info(f"Sending: {response}")
                         sock.sendall(response.encode('utf-8'))
                 else:
                     # Client disconnected
