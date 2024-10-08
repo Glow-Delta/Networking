@@ -1,3 +1,4 @@
+// socket_handling.cpp
 #include "socket_utils.h"
 #include <iostream>
 #include <sys/socket.h>
@@ -73,26 +74,17 @@ void handle_connections(int server_fd, int new_socket[], struct sockaddr_in &add
                 new_socket[i] = 0;
             } else {
                 buffer[valread] = '\0';
-                std::cout << "Message from Arduino or Node.js [" << i << "]: " << buffer << std::endl;
+                std::cout << "Message from Arduino [" << i << "]: " << buffer << std::endl;
 
                 // Check if buffer contains "404."
                 if (strstr(buffer, "404.") != nullptr) {
-                    std::cout << "404.* detected, sending back value of i: " << i << std::endl;
+                    std::cout << "404.* detected, sending back ID: " << i << std::endl;
                     
                     // Convert integer `i` to string for sending
                     std::string response = "ID=" + std::to_string(i);
 
-                    // Send the value of `i` back over the client socket `sd`
+                    // Send the response back over the client socket `sd`
                     send(sd, response.c_str(), response.length(), 0);
-                }
-
-                // Check if the message contains "color="
-                if (strstr(buffer, "color=") != nullptr) {
-                    std::string client_color_message = std::string(buffer);
-                    std::cout << "Color change message received for client " << i << ": " << client_color_message << std::endl;
-
-                    // Here, you can forward this message to the appropriate Arduino
-                    // Or process it as needed (e.g., updating a dictionary on the Arduino)
                 }
             }
         }
