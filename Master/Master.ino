@@ -1,51 +1,74 @@
+#include <SPI.h>
 #include <Ethernet.h>
 #include <EthernetUdp.h>
-
-// MAC address for your W5500 (needs to be unique in your network)
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-
-// IP address of your Arduino (adjust as needed)
-IPAddress ip(192, 168, 0, 2);
-
-// Server IP and port to connect to
-IPAddress server(192, 168, 0, 1); // IP of the server (192.168.0.1)
-unsigned int port = 50000;        // Port to send data to (50000)
-
-// Create a UDP object
+ 
+const int csPin = 10;
 EthernetUDP Udp;
-
-String IncomingData = "";
-
+ 
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+IPAddress remoteIP(192, 168, 0, 1); // Replace with your target IP
+const unsigned int remotePort = 50000; // Replace with your target port
+ 
 void setup() {
-  Serial.begin(9600);
-
-  // Start Ethernet
-  Ethernet.init(8);
-  Ethernet.begin(mac, ip);
-
-  // Allow the Ethernet shield some time to initialize
-  delay(1000);
-  Serial.println("Starting UDP connection...");
-
-  // Start the UDP connection on a local port
-  Udp.begin(port);
-  Serial.println("UDP connection started.");
-  sendDataToServer("Test connection!");
+  Serial.begin(9600); // Start Serial communication
+  while (!Serial) {
+    ; // Wait for Serial port to be available
+  }
+ 
+  pinMode(csPin, OUTPUT);
+  digitalWrite(csPin, HIGH); // Ensure CS is high to start
+ 
+  Serial.println("Initializing Ethernet...");
+  if (Ethernet.begin(mac) == 0) {
+    Serial.println("Failed to configure Ethernet using DHCP");
+    Ethernet.begin(mac, IPAddress(192, 168, 0, 2)); // Static IP fallback
+  } else {
+    Serial.print("Ethernet IP: ");
+    Serial.println(Ethernet.localIP());
+  }
+ 
+  Udp.begin(8888); // Start UDP on port 8888 (local port)
 }
-
+ 
 void loop() {
-  if (Serial.available() > 0) {
-    IncomingData = Serial.readString();
+  // Check if data is available on Serial1
+  if (Serial1.available()) {
+    // Read the incoming message
+    String message = Serial1.readStringUntil('\n');
+    Serial.println("Received: " + message); // Print the received message for debugging
+ 
+    // You can parse the message here if needed
+    if (message.startsWith("id=")) {
+      int idIndex = message.indexOf("id=") + 3;
+      int activationIndex = message.indexOf(":activation_level=");
+ 
+      if (activationIndex != -1) {
+        // Extract the ID and activation level
+        String id = message.substring(idIndex, activationIndex - 3);
+        String activation = message.substring(activationIndex + 18); // Adjust index to get the activation level
+        String RefactoredMessage = "";
+ 
+        // Process the id and activation level as needed
+        Serial.print("ID: ");
+        Serial.println(id);
+        Serial.print("Activation Level: ");
+        Serial.println(activation);
 
-    Serial.println(IncomingData);
-    if(IncomingData.length() > 0){
-      sendDataToServer(IncomingData);
+        RefactoredMessage = "id=";
+        RefactoredMessage += id;
+        RefactoredMessage += ":activation_level=";
+        RefactoredMessage += activation;
+
+        // Send the message
+        Udp.beginPacket(remoteIP, remotePort);
+        Udp.print(RefactoredMessage);
+        Udp.endPacket();
+      
+        Serial.print("Sent: ");
+        Serial.println(RefactoredMessage);
+
+        RefactoredMessage = "";
+      }
     }
   }
-}
-
-void sendDataToServer(const String &packetData) {
-  Udp.beginPacket(server, port);
-  Udp.write(packetData.c_str());
-  Udp.endPacket();
 }
