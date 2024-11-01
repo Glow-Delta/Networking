@@ -1,1 +1,0 @@
-scp -r ./* Delta@192.168.137.82:/home/Delta/server/
