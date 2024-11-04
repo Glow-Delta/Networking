@@ -19,19 +19,16 @@ def listen(server, volumes, client):
     while True:
         data, addr = server.recvfrom(1024)
         message = data.decode('utf-8')
-        # Extract `track_id` and `activation_level` from the message
-        parts = message.split(":")
-        track_id = int(parts[0].split("=")[1])  # Extracts "0" and converts to int
-        activation_level = int(parts[1].split("=")[1])  # Extracts "12" and converts to int
-        # Update the pillar_activation array and call functions
-        pillar_activation[track_id] = activation_level
-        osc_volume_control.background_music_check(pillar_activation, volumes, client)
-        osc_volume_control.pillar_activation(track_id, activation_level, volumes, client)
-
+        track_id, activation_level = message.split(":")
+        track_id = int(track_id.split("=")[1])
+        activation_level = int(activation_level.split("=")[1])
+        pillar_activation[int(track_id)-1] = int(activation_level)
+        osc_volume_control.background_music_check(pillar_activation,volumes, client)
+        osc_volume_control.pillar_activation(track_id,activation_level,volumes,client)
         
         
 if __name__ == "__main__":
-    udpserver = start_Server("192.168.0.1", 50000)
+    udpserver = start_Server("192.168.1.100", 50000)
     reaper_client = osc_client.start_osc_client("127.0.0.1", 9000)
     listen(udpserver, volumes, reaper_client)
     

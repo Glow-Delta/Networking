@@ -19,15 +19,14 @@ def set_reaper_track_volume(client: udp_client.SimpleUDPClient, track_number: in
     client.send_message(osc_address, volume)
 
 def fade_in(track_id, original_volume, duration, client):
-    client.set_volume(track_id, 0)
-    client.unmute_track(track_id)
+    set_reaper_track_volume(client, track_id, 0)
+    mute_track(client, track_id, False)
     muted[track_id-1] = 0
     steps = 100
     for i in range(steps):
         volume = (original_volume / steps) * i
-        client.set_volume(track_id, volume)
+        set_reaper_track_volume(client, track_id, volume)
         time.sleep(duration / steps)
-    active_tracks.append(track_id)
 
 import time
 
@@ -46,12 +45,12 @@ def mute_track(client: udp_client.SimpleUDPClient, track_number: int, mute: bool
     if track_number in active_tracks:
         if mute:
             active_tracks.remove(track_number)
-        else:
-            active_tracks.append(track_number)
+    else:
+        active_tracks.append(track_number)
 
 # Initialize mute tracking for, say, 10 tracks
 num_tracks = 17
-muted = [0] * num_tracks  # 0 means unmuted, 1 means muted
+muted = [1] * num_tracks  # 0 means unmuted, 1 means muted
 active_tracks = []
 
 import time
@@ -63,12 +62,12 @@ def cross_fade(tracks_in, tracks_out, duration, client, track_in_vols, track_out
     
     # Initialize volumes: set incoming tracks to volume 0 and unmute them, set outgoing to original volume
     for track, max_vol in zip(tracks_in, track_in_vols):
-        client.set_volume(track, 0)
+        set_reaper_track_volume(client, track, 0)
         mute_track(client, track, False)
         muted[track - 1] = 0  # Track is unmuted
 
     for track, max_vol in zip(tracks_out, track_out_vols):
-        client.set_volume(track, max_vol)
+        set_reaper_track_volume(client, track, max_vol)
         mute_track(client, track, False)  # Ensure outgoing tracks are unmuted initially
 
     steps = 100
@@ -76,23 +75,23 @@ def cross_fade(tracks_in, tracks_out, duration, client, track_in_vols, track_out
         # Fade in each track in tracks_in
         for track, max_vol in zip(tracks_in, track_in_vols):
             volume_in = (max_vol / steps) * i
-            set_reaper_track_volume(track, volume_in)
+            set_reaper_track_volume(client, track, volume_in)
         
         # Fade out each track in tracks_out
         for track, max_vol in zip(tracks_out, track_out_vols):
             volume_out = max_vol * (1 - (i / steps))
-            set_reaper_track_volume(track, volume_out)
+            set_reaper_track_volume(client, track, volume_out)
         
         time.sleep(duration / steps)
 
     # Finalize: mute and reset outgoing tracks, set incoming tracks to their target volume
     for track, max_vol in zip(tracks_out, track_out_vols):
-        set_reaper_track_volume(track, 0)
+        set_reaper_track_volume(client, track, 0)
         mute_track(client, track, True)
         muted[track - 1] = 1  # Track is muted
 
     for track, max_vol in zip(tracks_in, track_in_vols):
-        set_reaper_track_volume(track, max_vol)  # Ensure tracks_in reach target volume
+        set_reaper_track_volume(client, track, max_vol)  # Ensure tracks_in reach target volume
 
 def should_fade(track_number: int, fade_type: str):
     """
@@ -115,30 +114,47 @@ def should_fade(track_number: int, fade_type: str):
         raise ValueError("Invalid fade_type. Use 'in' for fade-in or 'out' for fade-out.")
 
 def pillar_activation(track, activation, volumes, client):
-    unmuted= None
+    unmuted = None
     section = 1
     if track > 1:
         section = ((track - 1) * 3) + 1
-        
+
     for i in range(3):
         if muted[(section - 1) + i] == 0:
-            unmuted = (section - 1) + i 
-            
-    
-    if 0 <= activation <= 5:
-        section = section + 1
-    elif 6 <= activation <= 10:
-        section = section + 2
-    elif 11 <= activation <= 16:
-        section = section +  3
-        
-    if should_fade(section, "in"):       
-        if unmuted & should_fade(unmuted, "out"):
-            cross_fade(section, unmuted, 5, client, volumes[section-1], volumes[unmuted])
-        else:
-            fade_in(section,volumes[section-1],2,client)
+            unmuted = (section - 1) + i
+            print (f"unmuted track: {unmuted}")
 
+    # Determine the appropriate section based on activation value
+    if 0 <= activation <= 5:
+        section = section
+    elif 6 <= activation <= 10:
+        section = section + 1
+    elif 11 <= activation <= 16:
+        section = section + 2
+
+    print(f"Section: {section}")
+
+    # Perform cross-fade if the conditions are met
+    if should_fade(section, "in"):
+        if unmuted is not None and should_fade((unmuted+1), "out"):
+            # Wrap section and unmuted in lists and pass corresponding volume lists
+            print ("doing cross fade")
+            cross_fade(
+                tracks_in=[section],
+                tracks_out=[(unmuted+1)],
+                duration=2,
+                client=client,
+                track_in_vols=[volumes[section - 1]],
+                track_out_vols=[volumes[unmuted]]
+            )
+        else:
+            print ("fade in")
+            # Fade in section if cross-fade is not needed
+            fade_in(section, volumes[section - 1], 2, client)
+
+prev = None
 def background_music_check(levels, volumes, client):
+    global prev
     total = sum(levels)
     background = 0 if total < 40 else 1
 
